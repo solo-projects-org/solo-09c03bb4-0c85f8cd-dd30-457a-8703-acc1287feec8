@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}院感药敏耐药统计{% endblock %}</title>
+  <style>
+    :root { --line:#d7dde5; --blue:#1a5fb4; --red:#c01c28; --amber:#b55c00; --green:#1e7c37; --bg:#f6f8fb; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: "Noto Sans CJK SC","PingFang SC","Microsoft YaHei",system-ui,sans-serif;
+           color:#1d2430; background:var(--bg); line-height:1.55; }
+    header { background:#123a6b; color:#fff; padding:14px 24px; }
+    header h1 { margin:0; font-size:20px; }
+    header .sub { font-size:12px; opacity:.85; margin-top:2px; }
+    main { max-width:1180px; margin:0 auto; padding:20px 24px 60px; }
+    section.card { background:#fff; border:1px solid var(--line); border-radius:10px;
+                   padding:18px 20px; margin-bottom:20px; }
+    h2 { font-size:16px; margin:0 0 12px; color:#123a6b; }
+    h3 { font-size:14px; margin:18px 0 8px; }
+    table { border-collapse:collapse; width:100%; font-size:13px; }
+    th, td { border:1px solid var(--line); padding:6px 9px; text-align:left; vertical-align:top; }
+    th { background:#eef3fa; font-weight:600; white-space:nowrap; }
+    td.num, th.num { text-align:right; font-variant-numeric:tabular-nums; }
+    form.inline { display:flex; flex-wrap:wrap; gap:10px; align-items:flex-end; }
+    label { font-size:12px; color:#4a5568; display:flex; flex-direction:column; gap:3px; }
+    input, select { padding:7px 9px; border:1px solid var(--line); border-radius:6px; font-size:13px; min-width:130px; }
+    button { background:var(--blue); color:#fff; border:0; border-radius:6px; padding:8px 16px;
+             font-size:13px; cursor:pointer; }
+    button.secondary { background:#5b6b7f; }
+    .msg { background:#e6f4ea; border:1px solid #9ed4ad; color:var(--green);
+           padding:10px 14px; border-radius:8px; margin-bottom:16px; font-size:13px; white-space:pre-wrap; }
+    .err { background:#fdeaea; border:1px solid #f1aeb5; color:var(--red);
+           padding:10px 14px; border-radius:8px; margin-bottom:16px; font-size:13px; white-space:pre-wrap; }
+    .tag { display:inline-block; padding:1px 8px; border-radius:999px; font-size:12px; font-weight:600; }
+    .tag-S { background:#e3f1e7; color:var(--green); }
+    .tag-I { background:#fdf3e0; color:var(--amber); }
+    .tag-R { background:#fde8e8; color:var(--red); }
+    .tag-AMBIGUOUS { background:#fff1c9; color:#8a6100; border:1px solid #e7c861; }
+    .tag-NO_CUTOFF { background:#eceff3; color:#5b6b7f; }
+    .tag-excluded { background:#eceff3; color:#5b6b7f; }
+    .muted { color:#6b7686; font-size:12px; }
+    .reason { font-size:12px; color:#444c58; }
+    .snap { font-size:12px; color:#5b6b7f; }
+    a { color:var(--blue); text-decoration:none; }
+    a:hover { text-decoration:underline; }
+    .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+    @media (max-width:900px){ .grid2 { grid-template-columns:1fr; } }
+    .ratio-na { color:var(--red); font-weight:600; }
+    code { background:#eef1f5; padding:1px 5px; border-radius:4px; font-size:12px; }
+  </style>
+</head>
+<body>
+<header>
+  <h1>院感药敏数据 · 菌种–药物耐药比例统计</h1>
+  <div class="sub">30 天首份去重 · MIC 界值跨档待复测 · 高修订更正 · 快照一致性</div>
+</header>
+<main>
+{% block body %}{% endblock %}
+</main>
+</body>
+</html>

@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}记录 {{ record_no }} 修订历史{% endblock %}
+{% block body %}
+<section class="card">
+  <h2>记录号 <code>{{ record_no }}</code> 的修订链</h2>
+  <table>
+    <tr><th class="num">修订号</th><th>患者</th><th>UTC采样日</th><th>菌种</th><th>药物</th>
+      <th>MIC</th><th>状态</th><th>接纳批次</th><th>接纳时间(UTC)</th></tr>
+    {% for r in rows %}
+    <tr>
+      <td class="num">v{{ r.revision_no }}</td>
+      <td>{{ r.patient_id }}</td><td>{{ r.sample_date }}</td>
+      <td>{{ r.organism }}</td><td>{{ r.drug }}</td><td><strong>{{ r.mic_raw }}</strong></td>
+      <td>
+        {% if r.superseded_by %}<span class="tag tag-excluded">已被更高修订更正</span>
+        {% else %}<span class="tag tag-S">当前生效</span>{% endif %}
+      </td>
+      <td><code>{{ (r.batch_ref or '')[:8] }}</code></td><td>{{ r.created_at }}</td>
+    </tr>
+    {% endfor %}
+  </table>
+  <p style="margin-top:14px;"><a href="/"><button type="button" class="secondary">返回首页</button></a></p>
+</section>
+{% endblock %}

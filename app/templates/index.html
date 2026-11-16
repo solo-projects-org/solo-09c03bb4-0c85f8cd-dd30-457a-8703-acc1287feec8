@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+{% block body %}
+
+{% if msg %}<div class="msg">✓ {{ msg }}</div>{% endif %}
+{% if err %}<div class="err">✗ {{ err }}</div>{% endif %}
+
+<p class="snap">数据库当前已提交快照版本：<strong>v{{ snapshot_version }}</strong>
+（每次接纳批次或修改切点都会产生新版本；报告只使用同一已提交快照）</p>
+
+<section class="card">
+  <h2>① 上传药敏记录 CSV</h2>
+  <p class="muted">必需列（表头精确匹配）：<code>记录号, 修订号, 匿名患者号, UTC采样日, 菌种, 药物, MIC</code>。
+    MIC 为正数，可带 <code>&lt;</code> <code>≤</code> <code>&gt;</code> <code>≥</code>；采样日为 YYYY-MM-DD 或带时区的 ISO 时间（按 UTC 取日期）。
+    整批任一非法行都会被拒绝，已接纳数据不会被改动。</p>
+  <form class="inline" action="/upload" method="post" enctype="multipart/form-data">
+    <label>选择 CSV 文件
+      <input type="file" name="file" accept=".csv,text/csv" required>
+    </label>
+    <button type="submit">上传并校验</button>
+  </form>
+  <h3>最近接纳批次</h3>
+  {% if batches %}
+  <table>
+    <tr><th>批次号</th><th>文件名</th><th class="num">行数</th><th>接纳时间(UTC)</th></tr>
+    {% for b in batches %}
+    <tr><td><code>{{ b.batch_ref[:8] }}</code></td><td>{{ b.filename }}</td>
+      <td class="num">{{ b.row_count }}</td><td>{{ b.created_at }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">尚无批次。</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>② 录入菌药组合切点（S 上限 &lt; R 下限，均为正数）</h2>
+  <form class="inline" action="/cutoffs" method="post">
+    <label>菌种 <input name="organism" required placeholder="如 大肠埃希菌"></label>
+    <label>药物 <input name="drug" required placeholder="如 头孢他啶"></label>
+    <label>S 上限（MIC ≤ 此值判 S） <input name="s_cutoff" required inputmode="decimal" placeholder="如 4"></label>
+    <label>R 下限（MIC ≥ 此值判 R） <input name="r_cutoff" required inputmode="decimal" placeholder="如 16"></label>
+    <button type="submit">保存 / 更新切点</button>
+  </form>
+  <h3>已录入切点</h3>
+  {% if cutoffs %}
+  <table>
+    <tr><th>菌种</th><th>药物</th><th class="num">S 上限</th><th class="num">R 下限</th><th>更新时间(UTC)</th></tr>
+    {% for c in cutoffs %}
+    <tr><td>{{ c.organism }}</td><td>{{ c.drug }}</td>
+      <td class="num">{{ '%g'|format(c.s_cutoff) }}</td>
+      <td class="num">{{ '%g'|format(c.r_cutoff) }}</td><td>{{ c.updated_at }}</td></tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">尚无切点；未配置切点的组合在报告中标为“无法判读”，不计入分母。</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>③ 查询日期范围内的统计与记录明细</h2>
+  <form class="inline" action="/report" method="get">
+    <label>起始日期（含） <input type="date" name="start" value="{{ report.start if report else '' }}"></label>
+    <label>结束日期（含） <input type="date" name="end" value="{{ report.end if report else '' }}"></label>
+    <label>菌种（可选） <input name="organism" value="{{ report.organism if report else '' }}"></label>
+    <label>药物（可选） <input name="drug" value="{{ report.drug if report else '' }}"></label>
+    <label>患者号（可选） <input name="patient_id" value="{{ report.patient_id if report else '' }}"></label>
+    <button type="submit">生成报告</button>
+    <a class="muted" href="/report"><button type="button" class="secondary">清空条件</button></a>
+  </form>
+  <p class="muted">去重在全部已接纳历史上计算，查询区间不会重置 30 天窗口；仅窗口外日期的入选记录会被列出。
+    JSON 接口：<code>GET /api/report?start=YYYY-MM-DD&amp;end=YYYY-MM-DD</code></p>
+</section>
+
+{% if report %}
+<section class="card">
+  <h2>④ 统计结果（快照 v{{ report.snapshot_version }}）</h2>
+  <p class="muted">区间：{{ report.start or '最早' }} 至 {{ report.end or '最新' }}
+    {% if report.organism %} · 菌种={{ report.organism }}{% endif %}
+    {% if report.drug %} · 药物={{ report.drug }}{% endif %}
+    {% if report.patient_id %} · 患者={{ report.patient_id }}{% endif %}</p>
+  {% if report.summary %}
+  <table>
+    <tr>
+      <th>菌种</th><th>药物</th>
+      <th class="num">区间内入选</th><th class="num">区间内去重剔除</th>
+      <th class="num">S</th><th class="num">I</th><th class="num">R</th>
+      <th class="num">待复测(跨档)</th><th class="num">无切点</th>
+      <th class="num">可判读分母</th><th class="num">R 占可判读比例</th>
+    </tr>
+    {% for s in report.summary %}
+    <tr>
+      <td>{{ s.organism }}</td><td>{{ s.drug }}</td>
+      <td class="num">{{ s.included }}</td>
+      <td class="num">{{ s.excluded_in_range }}</td>
+      <td class="num">{{ s.S }}</td><td class="num">{{ s.I }}</td><td class="num">{{ s.R }}</td>
+      <td class="num">{{ s.ambiguous }}</td><td class="num">{{ s.no_cutoff }}</td>
+      <td class="num">{{ s.interpretable }}</td>
+      <td class="num">
+        {% if s.r_ratio is none %}
+          <span class="ratio-na">无法计算（分母为 0）</span>
+        {% else %}
+          {{ '%.1f'|format(s.r_ratio * 100) }}%
+        {% endif %}
+      </td>
+    </tr>
+    {% if s.ratio_note %}<tr><td colspan="11" class="muted">{{ s.ratio_note }}：
+      待复测与无切点记录不计入可判读分母，但待复测记录仍占用去重窗口。</td></tr>{% endif %}
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">该条件下没有任何当前记录。</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>⑤ 待复测原始记录（MIC 界值跨 S/I/R 档）</h2>
+  {% if report.retest %}
+  <table>
+    <tr><th>记录号</th><th>患者</th><th>采样日</th><th>菌种</th><th>药物</th><th>MIC</th><th>原因</th><th>修订链</th></tr>
+    {% for r in report.retest %}
+    <tr>
+      <td><code>{{ r.record_no }}</code></td><td>{{ r.patient_id }}</td>
+      <td>{{ r.sample_date }}</td><td>{{ r.organism }}</td><td>{{ r.drug }}</td>
+      <td><strong>{{ r.mic_raw }}</strong></td>
+      <td><span class="tag tag-AMBIGUOUS">待复测</span> <span class="reason">{{ r.category_reason }}</span></td>
+      <td><a href="/records/{{ r.record_no }}">查看修订历史</a></td>
+    </tr>
+    {% endfor %}
+  </table>
+  {% else %}<p class="muted">没有跨档待复测记录。</p>{% endif %}
+</section>
+
+<section class="card">
+  <h2>⑥ 入选 / 剔除记录明细（含原因与记录号）</h2>
+  <table>
+    <tr><th>记录号</th><th class="num">修订号</th><th>患者</th><th>采样日</th>
+      <th>菌种</th><th>药物</th><th>MIC</th><th>结论</th><th>原因</th><th>修订链</th></tr>
+    {% for r in report.detail %}
+    <tr>
+      <td><code>{{ r.record_no }}</code></td>
+      <td class="num">v{{ r.revision_no }}</td>
+      <td>{{ r.patient_id }}</td><td>{{ r.sample_date }}</td>
+      <td>{{ r.organism }}</td><td>{{ r.drug }}</td><td>{{ r.mic_raw }}</td>
+      <td>
+        {% if not r.included %}<span class="tag tag-excluded">去重剔除</span>
+        {% elif r.category == 'AMBIGUOUS' %}<span class="tag tag-AMBIGUOUS">入选·待复测</span>
+        {% elif r.category == 'NO_CUTOFF' %}<span class="tag tag-NO_CUTOFF">入选·无切点</span>
+        {% else %}<span class="tag tag-{{ r.category }}">入选·{{ r.category }}</span>{% endif %}
+      </td>
+      <td class="reason">
+        {% if not r.included %}{{ r.dedup_reason }}（锚点 <code>{{ r.anchor_record_no }}</code>）
+        {% else %}{{ r.dedup_reason }} ｜ {{ r.category_reason }}{% endif %}
+      </td>
+      <td><a href="/records/{{ r.record_no }}">历史</a></td>
+    </tr>
+    {% else %}
+    <tr><td colspan="10" class="muted">区间内无入选或剔除记录。</td></tr>
+    {% endfor %}
+  </table>
+</section>
+{% endif %}
+
+{% endblock %}

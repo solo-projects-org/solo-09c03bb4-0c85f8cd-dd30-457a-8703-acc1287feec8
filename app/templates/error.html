@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}输入错误 · 院感药敏统计{% endblock %}
+{% block body %}
+<section class="card">
+  <h2>请求未通过校验</h2>
+  <div class="err">
+    <ul style="margin:6px 0;">
+      {% for e in errors %}<li>{{ e }}</li>{% endfor %}
+    </ul>
+  </div>
+  <a href="/"><button type="button" class="secondary">返回首页</button></a>
+</section>
+{% endblock %}
